@@ -2,7 +2,7 @@
 
 A header-only DLL proxy stub generation library built with C++20. No more copy-pasting 100s of DLL exports. No more guessing function parameters.
 
-For a somewhat detailed breakdown please [read DllProxy.h's header comments](include\QuickDllProxy\DllProxy.h) or [check out the implementation](include\QuickDllProxy\DllProxyImpl.inl).
+For a somewhat detailed breakdown please [read DllProxy.h's header comments](include/QuickDllProxy/DllProxy.h) or [check out the implementation](include/QuickDllProxy/DllProxyImpl.inl).
 
 ## Configuration
 
@@ -49,8 +49,8 @@ DECLARE_PROXIED_API("TestFunction_1110")
 ```
 
 ## Demo Projects
-- [WinHttp](example\demo_winhttp\dllmain.cpp)
-- [DbgHelp](example\demo_dbghelp\proxy.cpp)
+- [WinHttp](example/demo_winhttp/dllmain.cpp)
+- [DbgHelp](example/demo_dbghelp/proxy.cpp)
 
 ## Known Limitations
 - Exported global variables aren't supported.
