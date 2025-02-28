@@ -2,7 +2,7 @@
 
 A header-only DLL proxy stub generation library built with C++20. No more copy-pasting 100s of DLL exports. No more guessing function parameters.
 
-For a somewhat detailed breakdown please [read DllProxy.h's header comments](include/QuickDllProxy/DllProxy.h) or [check out the implementation](include/QuickDllProxy/DllProxyImpl.inl).
+This project attempts to emulate delayed imports in reverse, i.e. *delayed exports*. For a somewhat detailed breakdown please [read DllProxy.h's header comments](include/QuickDllProxy/DllProxy.h) or [check out the implementation](include/QuickDllProxy/DllProxyImpl.inl).
 
 ## Configuration
 
@@ -11,11 +11,11 @@ For a somewhat detailed breakdown please [read DllProxy.h's header comments](inc
 // Required setting to define the list of proxied exports for this library.
 
 #define DLL_PROXY_TLS_CALLBACK_AUTOINIT
-// Optional setting to create a TLS callback that runs DllProxy::Initialize.
+// Optional setting to automatically generate a TLS callback that runs DllProxy::Initialize.
 
 #define DLL_PROXY_CHECK_MISSING_EXPORTS
-// Optional setting to enforce all real exports are found during DllProxy::Initialize. If disabled, unresolved
-// export errors will be deferred until proxy functions are invoked.
+// Optional setting to enforce that all real exports are found during DllProxy::Initialize. If disabled,
+// unresolved export errors will be deferred until proxy functions are invoked.
 
 #define DLL_PROXY_LIBRARY_RESOLVER_CALLBACK MyExampleLibraryResolver
 // Optional setting to define a custom function that resolves a DLL's HMODULE. Signature identical to
@@ -26,7 +26,7 @@ For a somewhat detailed breakdown please [read DllProxy.h's header comments](inc
 // DllProxy::DefaultExportResolverCallback.
 
 #define DLL_PROXY_EXCEPTION_CALLBACK MyExampleExceptionCallback
-// Optional setting to define a custom function that's called on error. Signature identical to
+// Optional setting to define a custom function that's invoked on error. Signature identical to
 // DllProxy::DefaultExceptionCallback.
 ```
 

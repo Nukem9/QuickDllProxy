@@ -21,11 +21,11 @@
 //     Required setting to define the list of proxied exports for this library.
 //
 //   #define DLL_PROXY_TLS_CALLBACK_AUTOINIT
-//     Optional setting to create a TLS callback that runs DllProxy::Initialize.
+//     Optional setting to automatically generate a TLS callback that runs DllProxy::Initialize.
 //
 //   #define DLL_PROXY_CHECK_MISSING_EXPORTS
-//     Optional setting to enforce all real exports are found during DllProxy::Initialize. If disabled, unresolved
-//     export errors will be deferred until proxy functions are invoked.
+//     Optional setting to enforce that all real exports are found during DllProxy::Initialize. If disabled,
+//     unresolved export errors will be deferred until proxy functions are invoked.
 //
 //   #define DLL_PROXY_LIBRARY_RESOLVER_CALLBACK MyExampleLibraryResolver
 //     Optional setting to define a custom function that resolves a DLL's HMODULE. Signature identical to
@@ -36,7 +36,7 @@
 //     DllProxy::DefaultExportResolverCallback.
 //
 //   #define DLL_PROXY_EXCEPTION_CALLBACK MyExampleExceptionCallback
-//     Optional setting to define a custom function that's called on error. Signature identical to
+//     Optional setting to define a custom function that's invoked on error. Signature identical to
 //     DllProxy::DefaultExceptionCallback.
 //
 //
@@ -45,10 +45,10 @@
 //   1. Create a custom readable+executable PE section named ".dllprox". Its boundaries are defined by the virtual
 //      addresses of DllProxy::Section::ExportBoundaryStart and DllProxy::Section::ExportBoundaryEnd, respectively.
 //
-//   2. Declare AMD64 assembly stubs that will later point to the original ("real") functions. These proxy functions
-//      are placed in the custom section at compile time.
+//   2. Declare x86 or amd64 assembly stubs that will later point to the original ("real") functions. These proxy
+//      functions are placed in the custom ".dllprox" section at compile time.
 //
-//   3. Manually tell the linker to export these stubs. Exports are aliased in order to avoid name collisions with
+//   3. Tell the linker to export the aforementioned stubs. Exports are aliased in order to avoid name collisions with
 //      actual functions. For example, "PROXY_SymAllocDiaString" is aliased to "SymAllocDiaString" along with an
 //      ordinal. This is done by using __pragma(linker) macros instead of a traditional module.def file.
 //
@@ -60,7 +60,7 @@
 //      fails up front instead.
 //
 //   6. "At runtime" is determined by the developer. Ideally one would use a static constructor that's executed before
-//      DllMain, but there's no hard requirement on where this happens. This implementation also provides an optional
+//      DllMain but there's no hard requirement on where this happens. This implementation also provides an optional
 //      TLS callback to run DllProxy::Initialize early on in the loader process via DLL_PROXY_TLS_CALLBACK_AUTOINIT.
 //
 //
@@ -107,7 +107,7 @@ namespace DllProxy
 	enum class ErrorCode : std::uint8_t
 	{
 		/// <summary>
-		/// Unable to query base address of this DLL.
+		/// Failed to query base address of this DLL.
 		/// </summary>
 		InvalidModuleBase = 0,
 
@@ -132,7 +132,7 @@ namespace DllProxy
 		ExportNotFound = 4,
 
 		/// <summary>
-		/// A proxy export was called, but a real function pointer wasn't resolved yet.
+		/// A proxy export was called but a real function pointer wasn't resolved yet.
 		/// </summary>
 		ExportNotResolved = 5,
 	};
