@@ -5,5 +5,5 @@
   "description": "A header-only DLL proxy stub generation library built with C++20.",
   "homepage": "https://github.com/Nukem9/QuickDllProxy",
   "license": "LGPL-3.0-only",
-  "supports": "windows"
+  "supports": "windows & (x86 | x64)"
 }
