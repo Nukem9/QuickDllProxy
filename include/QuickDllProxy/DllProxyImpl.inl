@@ -356,7 +356,7 @@ namespace DllProxy
 			FreeLibrary(libraryHandle);
 
 			// Try system32 instead
-			const size_t bufferLength = 32768;
+			const size_t bufferLength = 4096;
 			auto buffer = reinterpret_cast<wchar_t *>(VirtualAlloc(nullptr, bufferLength * sizeof(wchar_t), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
 
 			if (!buffer)
