@@ -51,6 +51,7 @@ DECLARE_PROXIED_API("TestFunction_1110")
 ## Demo Projects
 - [WinHttp](example/demo_winhttp/dllmain.cpp)
 - [DbgHelp](example/demo_dbghelp/proxy.cpp)
+- [Vcpkg Port](example/vcpkg_port)
 
 ## Known Limitations
 - Exported global variables aren't supported.
