@@ -305,12 +305,16 @@ namespace DllProxy::Internal
 				if (status)
 				{
 #if defined(_M_IX86)
-					auto __unaligned ptr = &reinterpret_cast<Section::X86StubPlaceholderCode *>(Address)->JmpDwordDestination;
+					auto ptr = &reinterpret_cast<Section::X86StubPlaceholderCode *>(Address)->JmpDwordDestination;
+
+					static_assert(sizeof(*ptr) == sizeof(LONG), "Expected pointer to be 32 bits");
+					InterlockedExchange(reinterpret_cast<LONG *>(ptr), reinterpret_cast<LONG>(functionPointer));
 #elif defined(_M_X64) // _M_IX86
 					auto __unaligned ptr = &reinterpret_cast<Section::Amd64StubPlaceholderCode *>(Address)->JmpQwordDestination;
-#endif // _M_X64
 
-					InterlockedExchangePointer(ptr, functionPointer);
+					static_assert(sizeof(*ptr) == sizeof(LONGLONG), "Expected pointer to be 64 bits");
+					InterlockedExchange64(reinterpret_cast<LONGLONG *>(ptr), reinterpret_cast<LONGLONG>(functionPointer));
+#endif // _M_X64
 				}
 			}
 		});
