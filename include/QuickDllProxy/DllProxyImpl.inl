@@ -3,35 +3,56 @@
 
 #if !__cpp_constexpr || !__cpp_constinit || !__cpp_concepts
 #error This file requires a compiler with with C++20 support or newer for constexpr, constinit, and concept features.
-#endif // !__cpp_constexpr || !__cpp_constinit || !__cpp_concepts
+#endif
 
 #if !defined(_M_IX86) && !defined(_M_X64)
 #error Unsupported architecture.
-#endif // !_M_IX86 && !_M_X64
+#endif
 
 #if !defined(DLL_PROXY_DECLARE_IMPLEMENTATION)
 #error Do not include this file directly. Include DllProxy.h instead.
-#endif // !DLL_PROXY_DECLARE_IMPLEMENTATION
+#endif
 
 #if !defined(DLL_PROXY_EXPORT_LISTING_FILE)
 #error DLL_PROXY_EXPORT_LISTING_FILE must be defined before using DLL_PROXY_DECLARE_IMPLEMENTATION.
-#endif // !DLL_PROXY_EXPORT_LISTING_FILE
+#endif
 
 #if !defined(DLL_PROXY_LIBRARY_RESOLVER_CALLBACK)
 #define DLL_PROXY_LIBRARY_RESOLVER_CALLBACK DllProxy::DefaultLibraryResolverCallback
-#endif // !DLL_PROXY_LIBRARY_RESOLVER_CALLBACK
+#endif
 
 #if !defined(DLL_PROXY_EXPORT_RESOLVER_CALLBACK)
 #define DLL_PROXY_EXPORT_RESOLVER_CALLBACK DllProxy::DefaultExportResolverCallback
-#endif // !DLL_PROXY_EXPORT_RESOLVER_CALLBACK
+#endif
 
 #if !defined(DLL_PROXY_EXCEPTION_CALLBACK)
 #define DLL_PROXY_EXCEPTION_CALLBACK DllProxy::DefaultExceptionCallback
-#endif // !DLL_PROXY_EXCEPTION_CALLBACK
+#endif
 
 #define DLL_PROXY_STRINGIFY(X)		#X
-#define DLL_PROXY_CONCAT_IMPL(X, Y)	X##Y
+#define DLL_PROXY_CONCAT_IMPL(X, Y) X##Y
 #define DLL_PROXY_CONCAT(X, Y)		DLL_PROXY_CONCAT_IMPL(X, Y)
+
+#if defined(_MSC_VER)
+#define DLL_PROXY_MAKE_SECTION(Name)				__pragma(section(Name, read))
+#define DLL_PROXY_USE_SECTION(Name)					__declspec(allocate(Name))
+#define DLL_PROXY_ALIAS_SYMBOL(From, To)			__pragma(comment(linker, "/ALTERNATENAME:" To "=" From))
+#define DLL_PROXY_EXPORT_SYMBOL(From, To)			__pragma(comment(linker, "/EXPORT:" To "=" From))
+#define DLL_PROXY_EXPORT_ORDINAL(From, To, Ordinal) __pragma(comment(linker, "/EXPORT:" To "=" From ",@" #Ordinal))
+#elif defined(__GNUC__) // _MSC_VER
+#define DLL_PROXY_MAKE_SECTION(Name)				__asm__(".pushsection \"" Name "\", \"xr\"\n.balign 4096\n.popsection\n");
+#define DLL_PROXY_USE_SECTION(Name)					__attribute__((section(Name), used))
+#define DLL_PROXY_ALIAS_SYMBOL(From, To)			__asm__(".global \"" To "\"\n.set \"" To "\", " From);
+#if defined(_M_IX86)
+#define DLL_PROXY_SYMBOL_PREFIX "_"
+#else
+#define DLL_PROXY_SYMBOL_PREFIX ""
+#endif
+#define DLL_PROXY_EXPORT_SYMBOL(From, To)			DLL_PROXY_ALIAS_SYMBOL(From, DLL_PROXY_SYMBOL_PREFIX To)
+#define DLL_PROXY_EXPORT_ORDINAL(From, To, Ordinal) DLL_PROXY_ALIAS_SYMBOL(From, DLL_PROXY_SYMBOL_PREFIX To)
+#else // __GNUC__
+#error Unsupported compiler.
+#endif
 
 namespace DllProxy::Internal
 {
@@ -52,70 +73,70 @@ namespace DllProxy::Section
 	//
 	// .dllprox$a - Beginning of the segment
 	//
-	#pragma section(".dllprox$a", read)
-	__declspec(allocate(".dllprox$a")) alignas(DefaultPageAlign) constinit uint8_t ExportBoundaryStart = 1;
+	DLL_PROXY_MAKE_SECTION(".dllprox$a")
+	alignas(DefaultPageAlign) DLL_PROXY_USE_SECTION(".dllprox$a") constinit uint8_t ExportBoundaryStart = 1;
 
 	//
 	// .dllprox$b - Executable assembly code
 	//
-	#pragma section(".dllprox$b", read)
-	
+	DLL_PROXY_MAKE_SECTION(".dllprox$b")
+
 #if defined(_M_IX86)
 	
 	#pragma pack(push, 1)
 	struct X86StubPlaceholderCode
 	{
-		uint8_t JmpDwordOpcode[2];	// 0xFF 0x25
-		void *JmpDwordEipAddress;	// 0xDEADBEEF
-		void *JmpDwordDestination;	// 0xDEADC0DE
-		uint8_t Padding[6];			// 0xCC 0xCC 0xCC 0xCC 0xCC 0xCC
+		uint8_t JmpDwordOpcode[2]; // 0xFF 0x25
+		void *JmpDwordEipAddress;  // 0xDEADBEEF
+		void *JmpDwordDestination; // 0xDEADC0DE
+		uint8_t Padding[6];		   // 0xCC 0xCC 0xCC 0xCC 0xCC 0xCC
 	};
 	static_assert(sizeof(X86StubPlaceholderCode) == 16, "Opcodes are expected to be 16 bytes");
-	#pragma pack(pop)
+#pragma pack(pop)
 
 	#define MAKE_PROXY_EXPORT_IMPL(PlaceholderName)	\
 		extern "C"									\
-		__declspec(allocate(".dllprox$b"))			\
 		alignas(DefaultFuncAlign)					\
+		DLL_PROXY_USE_SECTION(".dllprox$b")			\
 		constinit									\
-		X86StubPlaceholderCode PlaceholderName { 0xFF, 0x25, &PlaceholderName.JmpDwordDestination, &Internal::UnresolvedExportCallback, 0xCC, 0xCC , 0xCC, 0xCC , 0xCC, 0xCC }; \
-		__pragma(comment(linker, "/ALTERNATENAME:" #PlaceholderName "=_" #PlaceholderName))
+		X86StubPlaceholderCode PlaceholderName { 0xFF, 0x25, &PlaceholderName.JmpDwordDestination, (void *)&Internal::UnresolvedExportCallback, 0xCC, 0xCC , 0xCC, 0xCC , 0xCC, 0xCC }; \
+		DLL_PROXY_ALIAS_SYMBOL(DLL_PROXY_STRINGIFY(_##PlaceholderName), #PlaceholderName)
 
 #elif defined(_M_X64) // _M_IX86
 	
 	#pragma pack(push, 1)
 	struct Amd64StubPlaceholderCode
 	{
-		uint8_t JmpQwordOpcode[2];	// 0xFF 0x25
-		int32_t JmpQwordRipOffset;	// 0x00000000
-		void *JmpQwordDestination;	// 0xDEADC0DEDEADC0DE
-		uint8_t Padding[2];			// 0xCC 0xCC
+		uint8_t JmpQwordOpcode[2]; // 0xFF 0x25
+		int32_t JmpQwordRipOffset; // 0x00000000
+		void *JmpQwordDestination; // 0xDEADC0DEDEADC0DE
+		uint8_t Padding[2];		   // 0xCC 0xCC
 	};
 	static_assert(sizeof(Amd64StubPlaceholderCode) == 16, "Opcodes are expected to be 16 bytes");
-	#pragma pack(pop)
+#pragma pack(pop)
 
 	#define MAKE_PROXY_EXPORT_IMPL(PlaceholderName)	\
 		extern "C"									\
-		__declspec(allocate(".dllprox$b"))			\
 		alignas(DefaultFuncAlign)					\
+		DLL_PROXY_USE_SECTION(".dllprox$b")			\
 		constinit									\
-		Amd64StubPlaceholderCode PlaceholderName { 0xFF, 0x25, 0, &Internal::UnresolvedExportCallback, 0xCC, 0xCC };
+		Amd64StubPlaceholderCode PlaceholderName { 0xFF, 0x25, 0, (void *)&Internal::UnresolvedExportCallback, 0xCC, 0xCC };
 
 #endif // _M_X64
 
-#define MAKE_PROXY_API_IMPL(FuncName, VariableAlias)	\
-	MAKE_PROXY_EXPORT_IMPL(VariableAlias)				\
-	__pragma(comment(linker, "/EXPORT:" FuncName "=" DLL_PROXY_STRINGIFY(VariableAlias)))
-		
-#define MAKE_PROXY_API_ORDINAL_IMPL(FuncName, Ordinal, VariableAlias)	\
-	MAKE_PROXY_EXPORT_IMPL(VariableAlias)								\
-	__pragma(comment(linker, "/EXPORT:" FuncName "=" DLL_PROXY_STRINGIFY(VariableAlias) ",@" #Ordinal))
+#define MAKE_PROXY_API_IMPL(FuncName, VariableAlias) \
+	MAKE_PROXY_EXPORT_IMPL(VariableAlias)            \
+	DLL_PROXY_EXPORT_SYMBOL(DLL_PROXY_STRINGIFY(VariableAlias), FuncName)
+
+#define MAKE_PROXY_API_ORDINAL_IMPL(FuncName, Ordinal, VariableAlias) \
+	MAKE_PROXY_EXPORT_IMPL(VariableAlias)                             \
+	DLL_PROXY_EXPORT_ORDINAL(DLL_PROXY_STRINGIFY(VariableAlias), FuncName, Ordinal)
 
 #define DECLARE_PROXIED_API(FuncName) \
-	MAKE_PROXY_API_IMPL(FuncName, DLL_PROXY_CONCAT(PROXY_, __COUNTER__))
+	MAKE_PROXY_API_IMPL(FuncName, DLL_PROXY_CONCAT(XPROXY_, __COUNTER__))
 
 #define DECLARE_PROXIED_API_ORDINAL(FuncName, Ordinal) \
-	MAKE_PROXY_API_ORDINAL_IMPL(FuncName, Ordinal, DLL_PROXY_CONCAT(PROXY_, __COUNTER__))
+	MAKE_PROXY_API_ORDINAL_IMPL(FuncName, Ordinal, DLL_PROXY_CONCAT(XPROXY_, __COUNTER__))
 
 #define DECLARE_PROXIED_LIBRARY(LibraryName) \
 	constexpr auto OriginalLibraryName = L##LibraryName;
@@ -132,13 +153,15 @@ namespace DllProxy::Section
 	//
 	// .dllprox$z - End of the segment
 	//
-	#pragma section(".dllprox$z", read)
-	__declspec(allocate(".dllprox$z")) alignas(DefaultPageAlign) constinit uint8_t ExportBoundaryEnd = 1;
+	DLL_PROXY_MAKE_SECTION(".dllprox$z")
+	alignas(DefaultPageAlign) DLL_PROXY_USE_SECTION(".dllprox$z") constinit uint8_t ExportBoundaryEnd = 1;
 
 	//
 	// Merge ".dllprox" into ".text" with identical attributes
 	//
+#if defined(_MSC_VER)
 	#pragma comment(linker, "/MERGE:.dllprox=.text")
+#endif
 }
 
 //
@@ -149,6 +172,7 @@ namespace DllProxy::Section
 namespace DllProxy::TLS
 {
 #if defined(DLL_PROXY_TLS_CALLBACK_AUTOINIT)
+#if defined(_MSC_VER)
 #if defined(_M_IX86)
 
 	#pragma data_seg(push, proxdata, ".CRT$XLB")
@@ -166,6 +190,17 @@ namespace DllProxy::TLS
 	#pragma comment(linker, "/INCLUDE:DllProxyTLSCallback")
 
 #endif // _M_X64
+#elif defined(__GNUC__) // _MSC_VER
+#if defined(_M_IX86)
+
+	DLL_PROXY_USE_SECTION(".CRT$XLB") extern "C" PIMAGE_TLS_CALLBACK DllProxyTLSCallback = Internal::TLSInitCallback;
+
+#elif defined(_M_X64) // _M_IX86
+
+	DLL_PROXY_USE_SECTION(".CRT$XLB") extern "C" constexpr PIMAGE_TLS_CALLBACK DllProxyTLSCallback = Internal::TLSInitCallback;
+
+#endif // _M_X64
+#endif // __GNUC__
 #endif // DLL_PROXY_TLS_CALLBACK_AUTOINIT
 }
 
@@ -182,12 +217,16 @@ namespace DllProxy::Internal
 
 	void InitializeImpl();
 	
-	void UnrecoverableError(ErrorCode Code)
+	__declspec(noinline) void UnrecoverableError(ErrorCode Code)
 	{
 		ExceptionCallback(Code);
-		
+
 		__debugbreak();
+#if defined(_MSC_VER)
 		__assume(0);
+#elif defined(__GNUC__)
+		__builtin_unreachable();
+#endif
 	}
 
 	void UnresolvedExportCallback()
@@ -299,7 +338,7 @@ namespace DllProxy::Internal
 #if defined(DLL_PROXY_CHECK_MISSING_EXPORTS)
 				if (!status)
 					UnrecoverableError(ErrorCode::ExportNotFound);
-#endif // DLL_PROXY_CHECK_MISSING_EXPORTS
+#endif
 
 				// functionPointer is allowed to be null as long as success is reported. Users can hurt themselves as they please.
 				if (status)
@@ -339,7 +378,7 @@ namespace DllProxy
 	{
 		Internal::InitializeImpl();
 	}
-#endif // !DLL_PROXY_TLS_CALLBACK_AUTOINIT
+#endif
 
 	void *DefaultLibraryResolverCallback()
 	{
@@ -383,10 +422,10 @@ namespace DllProxy
 		void *pointer = nullptr;
 
 		if (Name)
-			pointer = GetProcAddress(static_cast<HMODULE>(Module), Name);
+			pointer = reinterpret_cast<void *>(GetProcAddress(static_cast<HMODULE>(Module), Name));
 
 		if (!pointer)
-			pointer = GetProcAddress(static_cast<HMODULE>(Module), MAKEINTRESOURCEA(Ordinal));
+			pointer = reinterpret_cast<void *>(GetProcAddress(static_cast<HMODULE>(Module), MAKEINTRESOURCEA(Ordinal)));
 
 		if (!pointer)
 			return false;
